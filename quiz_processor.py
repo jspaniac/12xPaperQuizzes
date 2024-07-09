@@ -90,10 +90,16 @@ def read_file(section_to_students, section, file_path, thresholds):
                 section_to_students[section].append(stud)
 
 
-def remove_drs(section_to_students):
-    for _, studs in section_to_students.items():
+def remove_drs_makeup(section_to_students):
+    section_to_students["Makeup"]
+    section_to_students["DRS"]
+    for section, studs in section_to_students.items():
+        if section == "DRS" or section == "Makeup":
+            continue
+
         for stud in studs:
-            if stud in section_to_students["DRS"]:
+            if (stud in section_to_students["DRS"] or
+                    stud in section_to_students["Makeup"]):
                 studs.remove(stud)
 
 
@@ -106,7 +112,7 @@ def load_files(path, thresholds):
             if section != "Version":
                 read_file(section_to_students, section,
                           os.path.join(root, filename), thresholds)
-    remove_drs(section_to_students)
+    remove_drs_makeup(section_to_students)
     return section_to_students
 
 
