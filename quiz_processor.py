@@ -39,6 +39,9 @@ class Student:
                 self.lname == other.lname and
                 self.email == other.email)
 
+    def __hash__(self):
+        return hash((self.fname, self.lname, self.email))
+
 
 def find_cols(file_path):
     problem_to_cols = defaultdict(list)
@@ -97,9 +100,9 @@ def remove_drs_makeup(section_to_students):
         if section == "DRS" or section == "Makeup":
             continue
 
-        for stud in studs:
-            if (stud in section_to_students["DRS"] or
-                    stud in section_to_students["Makeup"]):
+        for stud in studs[:]:
+            if (stud in section_to_students["Makeup"] or
+                    stud in section_to_students["DRS"]):
                 studs.remove(stud)
 
 
@@ -217,6 +220,19 @@ def plot_distribution(axs, section_to_students):
     axs.set_title("Quiz E/S/N Distribution")
 
 
+def get_total(section_to_students):
+    total_graded = OrderedDict()
+    total_graded["Total"] = 0
+    for section, studs in section_to_students.items():
+        total = 0
+        for stud in studs:
+            if not stud.missing:
+                total += 1
+        total_graded[section] = total
+        total_graded["Total"] += total
+    return total_graded
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Used for gathering grades from different gradescope versions"
@@ -250,6 +266,7 @@ def main():
     print(args.thresholds)
 
     section_to_students = load_files(args.path, args.thresholds)
+    print(f"\nTotal graded: {get_total(section_to_students)}")
     plot(section_to_students)
 
 
