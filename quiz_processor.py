@@ -92,6 +92,8 @@ def add_missing(path, version_to_students):
                 status_index = header.index('Status')
 
                 for row in csv_reader:
+                    # NOTE: For some reason gradescope csv formatting is messed up where
+                    # if they're missing the status isn't stored in the status column?
                     if row[status_index - 1] == "Missing":
                         stud = create_student(header, row)
                         for _ in range(3):
