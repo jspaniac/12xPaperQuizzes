@@ -55,68 +55,72 @@ def find_cols(file_path):
     return problem_to_cols
 
 
-def read_file(section_to_students, section, file_path, thresholds):
+def read_file(version_to_students, version, file_path, thresholds):
     problem_to_cols = find_cols(file_path)
     with open(file_path, 'r') as file:
         csv_reader = csv.reader(file)
         header = next(csv_reader)
-
-        stud_indices = [
-            header.index('First Name'),
-            header.index('Last Name'),
-            header.index('Email'),
-            header.index('Sections'),
-        ]
+        status_index = header.index('Status')
 
         for row in csv_reader:
-            if (section.lower() in row[header.index('Sections')] or
-                    row[header.index('Status')] == "Graded"):
-                stud = Student([row[index] for index in stud_indices])
+            if row[status_index] == "Graded":
+                stud = create_student(header, row)
+                for prob, indices in problem_to_cols.items():
+                    sum = 0
+                    for index in indices:
+                        sum += float(row[index])
 
-                if (row[header.index('Status')] == "Missing"):
-                    stud.set_missing()
-                    for _ in range(3):
+                    if sum >= thresholds[prob - 1][0]:
+                        stud.add_grade('E')
+                    elif sum >= thresholds[prob - 1][1]:
+                        stud.add_grade('S')
+                    else:
                         stud.add_grade('N')
-                else:
-                    for prob, indices in problem_to_cols.items():
-                        sum = 0
-                        for index in indices:
-                            sum += float(row[index])
 
-                        if sum >= thresholds[prob - 1][0]:
-                            stud.add_grade('E')
-                        elif sum >= thresholds[prob - 1][1]:
-                            stud.add_grade('S')
-                        else:
+                version_to_students[version].append(stud)
+
+
+def add_missing(path, version_to_students):
+    for root, _, files in os.walk(path):
+        for filename in files:
+            if ("Version_Set_Scores") not in filename:
+                continue
+
+            with open(os.path.join(root, filename), 'r') as file:
+                csv_reader = csv.reader(file)
+                header = next(csv_reader)
+                status_index = header.index('Status')
+
+                for row in csv_reader:
+                    if row[status_index - 1] == "Missing":
+                        stud = create_student(header, row)
+                        for _ in range(3):
                             stud.add_grade('N')
+                        stud.set_missing()
+                        version_to_students["None"].append(stud)
 
-                section_to_students[section].append(stud)
 
-
-def remove_drs_makeup(section_to_students):
-    section_to_students["Makeup"]
-    section_to_students["DRS"]
-    for section, studs in section_to_students.items():
-        if section == "DRS" or section == "Makeup":
-            continue
-
-        for stud in studs[:]:
-            if (stud in section_to_students["Makeup"] or
-                    stud in section_to_students["DRS"]):
-                studs.remove(stud)
+def create_student(header, row):
+    stud_indices = [
+        header.index('First Name'),
+        header.index('Last Name'),
+        header.index('Email'),
+        header.index('Sections'),
+    ]
+    return Student([row[index] for index in stud_indices])
 
 
 def load_files(path, thresholds):
-    section_to_students = defaultdict(list)
+    version_to_students = defaultdict(list)
     for root, _, files in os.walk(path):
         for filename in files:
             section = filename.split("_")[2]
 
             if section != "Version":
-                read_file(section_to_students, section,
+                read_file(version_to_students, section,
                           os.path.join(root, filename), thresholds)
-    remove_drs_makeup(section_to_students)
-    return section_to_students
+    add_missing(path, version_to_students)
+    return version_to_students
 
 
 def plot(section_to_students):
@@ -203,7 +207,7 @@ def plot_distribution(axs, section_to_students):
 
     for bar in bars:
         height = bar.get_height()
-        axs.annotate('{} ({}%)'.format(height, round(100 * height / total_studs)),
+        axs.annotate(f"{height} ({round(100 * height / total_studs)}%)",
                      xy=(bar.get_x() + bar.get_width() / 2, height),
                      xytext=(0, 3),  # 3 points vertical offset
                      textcoords="offset points",
@@ -228,7 +232,7 @@ def get_total(section_to_students):
         for stud in studs:
             if not stud.missing:
                 total += 1
-        total_graded[section] = total
+        total_graded[section] = len(studs)
         total_graded["Total"] += total
     return total_graded
 
@@ -265,9 +269,9 @@ def main():
         return
     print(args.thresholds)
 
-    section_to_students = load_files(args.path, args.thresholds)
-    print(f"\nTotal graded: {get_total(section_to_students)}")
-    plot(section_to_students)
+    version_to_students = load_files(args.path, args.thresholds)
+    print(f"\nTotal graded: {get_total(version_to_students)}")
+    plot(version_to_students)
 
 
 if __name__ == "__main__":
